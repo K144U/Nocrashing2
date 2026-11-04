@@ -52,12 +52,20 @@ scenario with 240 s for queues to empty), 3 repetitions.
 | Grid | RQ | Runs | What varies |
 |---|---|---|---|
 | `p2-lease` | 1 | 18 | naive; token with lease 0 (paper 1), 1, 2, 4; front vs back re-entry |
-| `p2-adaptive` | 2 | 24 | fixed vs closed-loop rate from 0.5×, 0.8×, 1.2× capacity; portal slower than calibrated |
+| `p2-roomcpu` | threats | 6 | room with 0.25 vs 0.5 CPU at 5× |
+| `p2-adaptive` | 2 | 27 | fixed vs closed-loop rate from 0.5×, 0.8×, 1.2× capacity; portal slower than calibrated; 500 ms vs 2 s target |
 | `p2-eta` | 3 | 9 | queue patience 30–300 s; estimates off/on; with closed loop |
 | `p2-bots` | 4 | 15 | 20 scrapers; A alone; room with lease 0 or 2; bots with fresh sessions |
-| `p2-loads` | all | 36 | 2×, 5×, 10×: A, C1, paper-1 room, lease 2 + closed loop |
+| `p2-loads` | all | 45 | 2×, 5×, 10×: A, C1, paper-1 room, lease 1, lease 1 + closed loop |
 
-Run everything (about 13 hours, resumable):
+First pilot results and the changes they led to: [`reports/pilot-2026-11-04.md`](../../reports/pilot-2026-11-04.md).
+In every waiting-room run, check `wr_cpu_saturated_share` and `wr_oom_killed`:
+a run in which the room itself ran out of CPU or memory measures the room's
+implementation, not the admission policy. Use `wr_backend_amplification` (the
+room's count of forwarded requests), not the generator's
+`backend_amplification`, for backend load behind a room.
+
+Run everything (about 14 hours, resumable):
 
 ```bash
 bash bench/paper2-run.sh

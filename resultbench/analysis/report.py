@@ -36,7 +36,8 @@ DEFAULT_METRICS = {
 }
 # Second paper: waiting-room mechanisms.
 _P2 = ["served_ok", "success_10s", "unfinished_share", "wait_p50_ms", "wait_p95_ms", "time_to_result_p95_ms",
-       "kendall_tau_prerelease", "backend_amplification", "cpu_s_per_1k_served", "wr_lease_expired", "wr_readmitted"]
+       "kendall_tau_prerelease", "backend_amplification", "wr_backend_amplification", "cpu_s_per_1k_served",
+       "wr_lease_expired", "wr_readmitted", "wr_cpu_saturated_share", "wr_oom_killed"]
 DEFAULT_METRICS.update({
     "p2-lease": _P2,
     "p2-adaptive": _P2 + ["wr_rate_mean", "wr_rate_min", "wr_rate_max", "wr_rate_decreases"],

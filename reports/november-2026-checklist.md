@@ -46,7 +46,7 @@ or a phone. Everything else is in the repository and ready to run.
 ## Waiting-room paper (lab, now to February)
 
 - [ ] Calibrate design A on your machine (the 8-core desktop used for paper 1)
-  and run the grids; about 13 hours of machine time in total:
+  and run the grids; about 14 hours of machine time in total:
 
   ```bash
   cd resultbench && bash bench/paper2-run.sh

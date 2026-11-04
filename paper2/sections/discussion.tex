@@ -9,7 +9,11 @@ One machine and a compressed surge, as in the first
 paper~\cite{pathak2026surviving}; a modelled portal cost; a student model
 whose parameters come from a lab study of a mock result, in which students
 are likely calmer than on a real result day; bots modelled as simple
-scrapers, not adversaries that forge tickets or open many sessions.
+scrapers, not adversaries that forge tickets or open many sessions. The room
+has its own budget (0.25 CPU), and in a pilot on a smaller machine it ran out
+of CPU and memory at 5$\times$ before the backend did; we report runs in
+which the room was at its CPU limit and vary its budget
+(\texttt{p2-roomcpu}).
 
 \section{Conclusion}
 \todo{After results.}

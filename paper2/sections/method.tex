@@ -37,10 +37,11 @@ the portal's load but in no student metric.
 Grid & RQ & Varies \\
 \midrule
 p2-lease & 1 & naive; token with $k \in \{\infty, 1, 2, 4\}$; front or back re-entry \\
-p2-adaptive & 2 & fixed rate at 0.5/0.8/1.2$\times$ capacity vs.\ closed loop from the same start; slower portal \\
+p2-roomcpu & -- & room with 0.25 or 0.5 CPU at 5$\times$ \\
+p2-adaptive & 2 & fixed rate at 0.5/0.8/1.2$\times$ capacity vs.\ closed loop from the same start; slower portal; 0.5 or 2\,s target \\
 p2-eta & 3 & queue patience 30--300\,s; estimates off/on \\
 p2-bots & 4 & 20 bots; A alone; room with and without lease \\
-p2-loads & all & 2, 5, 10$\times$; paper-1 room vs.\ lease and closed loop \\
+p2-loads & all & 2, 5, 10$\times$; paper-1 room vs.\ lease 1 with and without closed loop \\
 \bottomrule
 \end{tabular}
 \end{table}

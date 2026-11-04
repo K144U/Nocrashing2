@@ -1,0 +1,17 @@
+# Paper 2: the room's own budget. In the pilot on a 4-core machine the room
+# used its whole 0.25 CPU at 5x (mostly connection handling; the room's own
+# logic costs about 7 us per poll), grew to its 512 MB limit and was killed.
+# Does a room with 0.5 CPU (taken from A's database and portal, so the total
+# stays 2 CPUs) do better at 5x? Check wr_cpu_saturated_share and
+# wr_oom_killed in every waiting-room run.
+name: p2-roomcpu
+scenario: bench/scenarios/paper2.yaml
+capacity_from: a
+reps: 3
+env: {WR_POLICY: fifo, WR_MODE: token, WR_LEASE_REQUESTS: "1"}
+runs:
+  - designs: [d-a]
+    multiples: [5]
+    variants:
+      - {label: room-0.25, env: {WR_CPUS: "0.25", PORTAL_CPUS: "0.875", PG_CPUS: "0.875"}}
+      - {label: room-0.5, env: {WR_CPUS: "0.5", PORTAL_CPUS: "0.75", PG_CPUS: "0.75"}}

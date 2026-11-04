@@ -12,4 +12,5 @@ runs:
     env: {WR_POLICY: fifo, WR_MODE: token}
     variants:
       - {label: paper1, env: {WR_LEASE_REQUESTS: "0"}}
-      - {label: lease-2-adaptive, env: {WR_LEASE_REQUESTS: "2", WR_ADAPTIVE: "true"}}
+      - {label: lease-1, env: {WR_LEASE_REQUESTS: "1"}}
+      - {label: lease-1-adaptive, env: {WR_LEASE_REQUESTS: "1", WR_ADAPTIVE: "true", WR_TARGET_LATENCY: 2s}}

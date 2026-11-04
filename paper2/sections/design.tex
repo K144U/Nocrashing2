@@ -17,7 +17,8 @@ back.
 
 \textbf{Closed-loop admission.} Instead of a fixed rate, the room measures
 every request it forwards. Each second, if more than 10\% of the requests that
-finished took longer than a target (500\,ms), failed, or were abandoned by the
+finished took longer than a target (2\,s, the deadline the portal's
+capacity is calibrated against), failed, or were abandoned by the
 student, or if none finished while some were in progress, the rate is
 multiplied by 0.8; otherwise, if students are waiting, it grows by 5\% of
 the starting rate. The rate stays between 0.1 and 4 times its starting value.

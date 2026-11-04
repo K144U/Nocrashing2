@@ -7,7 +7,7 @@ name: p2-eta
 scenario: bench/scenarios/paper2.yaml
 capacity_from: a
 reps: 3
-env: {WR_POLICY: fifo, WR_MODE: token, WR_LEASE_REQUESTS: "2"}
+env: {WR_POLICY: fifo, WR_MODE: token, WR_LEASE_REQUESTS: "2", WR_TARGET_LATENCY: 2s}
 set: {users.queue_patience_s: [30, 300]}
 runs:
   - designs: [d-a]

@@ -27,6 +27,28 @@ def _read_json(p: Path) -> dict:
     return json.loads(p.read_text()) if p.exists() else {}
 
 
+def saturation(run_dir: Path, meta: dict, service: str, cpu_env: str, threshold: float = 0.95) -> dict:
+    """Share of sampled seconds after release in which `service` used at
+    least `threshold` of its CPU limit, and whether it was OOM-killed. A run
+    in which the waiting room itself ran out of CPU measures the room's
+    implementation, not the admission policy, and should be flagged."""
+    out = {f"{service}_cpu_saturated_share": np.nan,
+           f"{service}_oom_killed": bool(meta.get("containers", {}).get(service, {}).get("oom_killed", False))}
+    f = run_dir / "resources.csv"
+    limit = float(meta.get("env", {}).get(cpu_env) or 0)
+    if not f.exists() or limit <= 0:
+        return out
+    r = pd.read_csv(f)
+    r = r[(r["service"] == service)].sort_values("t_ms")
+    if len(r) < 3:
+        return out
+    rate = r["cpu_seconds_total"].diff() / (r["t_ms"].diff() / 1000)
+    alive = (r["t_ms"] >= 0) & (r["cpu_seconds_total"] > 0) & rate.notna() & (rate >= 0)
+    if alive.sum():
+        out[f"{service}_cpu_saturated_share"] = float((rate[alive] >= threshold * limit).mean())
+    return out
+
+
 def load_run(run_dir: Path, details: bool = True) -> dict | None:
     s = _read_json(run_dir / "load" / "summary.json")
     if not s:
@@ -89,6 +111,13 @@ def load_run(run_dir: Path, details: bool = True) -> dict | None:
     wr = _read_json(run_dir / "stats" / "wr.json")
     for k in WR_COUNTERS:
         row[f"wr_{k}"] = wr.get(k, np.nan) if wr else np.nan
+    if wr and s["users"]:
+        # Requests the room actually forwarded. The generator's
+        # backend_amplification also counts requests that timed out while
+        # still inside the room, which overstates backend load when the room
+        # itself is slow.
+        row["wr_backend_amplification"] = wr.get("proxied", 0) / s["users"]
+    row.update(saturation(run_dir, meta, "wr", "WR_CPUS"))
     ratelog = run_dir / "stats" / "wr_ratelog.json"
     if ratelog.exists():
         points = json.loads(ratelog.read_text() or "[]") or []

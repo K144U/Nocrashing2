@@ -4,11 +4,15 @@
 # at 0.5x, 0.8x and 1.2x of A's calibrated capacity with a closed-loop room
 # started from the same guesses, and a backend that is slower on the day
 # than when it was calibrated (page cost 8 ms instead of 5 ms).
+# The target latency is 2 s, the deadline A's capacity was calibrated
+# against; in the pilot (reports/pilot-2026-11-04.md) the code default of
+# 500 ms kept the rate at about 60% of the fixed one. adaptive-0.8-t500ms
+# keeps that setting as a sensitivity check.
 name: p2-adaptive
 scenario: bench/scenarios/paper2.yaml
 capacity_from: a
 reps: 3
-env: {WR_POLICY: fifo, WR_MODE: token, WR_LEASE_REQUESTS: "2"}
+env: {WR_POLICY: fifo, WR_MODE: token, WR_LEASE_REQUESTS: "2", WR_TARGET_LATENCY: 2s}
 runs:
   - designs: [d-a]
     multiples: [5]
@@ -19,5 +23,6 @@ runs:
       - {label: adaptive-0.5, env: {WR_ADMIT_FRACTION: "0.5", WR_ADAPTIVE: "true"}}
       - {label: adaptive-0.8, env: {WR_ADMIT_FRACTION: "0.8", WR_ADAPTIVE: "true"}}
       - {label: adaptive-1.2, env: {WR_ADMIT_FRACTION: "1.2", WR_ADAPTIVE: "true"}}
+      - {label: adaptive-0.8-t500ms, env: {WR_ADMIT_FRACTION: "0.8", WR_ADAPTIVE: "true", WR_TARGET_LATENCY: 500ms}}
       - {label: slow-fixed-0.8, env: {WR_ADMIT_FRACTION: "0.8", PAGE_COST: 8ms}}
       - {label: slow-adaptive-0.8, env: {WR_ADMIT_FRACTION: "0.8", WR_ADAPTIVE: "true", PAGE_COST: 8ms}}

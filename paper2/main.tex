@@ -1,0 +1,55 @@
+\documentclass[conference]{IEEEtran}
+\usepackage[utf8]{inputenc}
+\usepackage{amsmath}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{url}
+\usepackage{xurl}
+\usepackage{xcolor}
+\usepackage{siunitx}
+\usepackage[hidelinks]{hyperref}
+\sisetup{group-separator={,},group-minimum-digits=4}
+% Visible placeholders for numbers and text still to come from the runs.
+\newcommand{\todo}[1]{\textcolor{red}{[TODO: #1]}}
+
+\begin{document}
+
+% Working title.
+\title{Waiting Rooms for Result Day: Admission Leases, Closed-Loop Admission\\and Wait Estimates under Scheduled Surges}
+
+\author{\IEEEauthorblockN{Sankalp Pathak}
+\IEEEauthorblockA{Department of Computer Science and Engineering\\
+Azad Institute of Engineering and Technology, Lucknow, India\\
+(affiliated to Dr.~A.~P.~J.~Abdul Kalam Technical University)\\
+pathaksankalp04@gmail.com}
+\and
+\IEEEauthorblockN{Imran Khan}
+\IEEEauthorblockA{Department of Computer Science and Engineering\\
+Azad Institute of Engineering and Technology, Lucknow, India\\
+(affiliated to Dr.~A.~P.~J.~Abdul Kalam Technical University)}}
+
+\maketitle
+
+\input{sections/abstract.tex}
+
+\begin{IEEEkeywords}
+virtual waiting room, admission control, flash crowds, overload, fairness, user behaviour, e-governance
+\end{IEEEkeywords}
+
+\input{sections/intro.tex}
+\input{sections/background.tex}
+\input{sections/design.tex}
+\input{sections/method.tex}
+\input{sections/results.tex}
+\input{sections/discussion.tex}
+
+\section*{Acknowledgments}
+
+An AI assistant (Claude, Anthropic) was used under the authors' direction for
+software development, data analysis, and drafting and editing of the text.
+The authors reviewed all content and are responsible for it.
+
+\bibliographystyle{IEEEtran}
+\bibliography{../paper/refs,refs}
+
+\end{document}

@@ -1,0 +1,32 @@
+\section{Waiting-Room Mechanisms}
+\label{sec:design}
+
+All mechanisms are in ResultBench's waiting room
+(\texttt{internal/wroom}), which sits in front of the portal and admits
+students at a configured rate in first-come-first-served or lottery order. A
+student's ticket is kept either in the page (\emph{naive}) or in a signed
+cookie (\emph{token}).
+
+\textbf{Admission lease.} An admission is good for at most $k$ requests to
+the portal, as well as for a session lifetime (60\,s). A student who has used
+$k$ requests and asks again rejoins the queue, by default at the front, so
+that a student who arrived early keeps their place but cannot send more than
+$k$ requests per admission. The portal then receives at most $k$ times the
+admission rate. We test $k \in \{1, 2, 4\}$ and re-entry at the front or the
+back.
+
+\textbf{Closed-loop admission.} Instead of a fixed rate, the room measures
+every request it forwards. Each second, if more than 10\% of the requests that
+finished took longer than a target (500\,ms), failed, or were abandoned by the
+student, or if none finished while some were in progress, the rate is
+multiplied by 0.8; otherwise, if students are waiting, it grows by 5\% of
+the starting rate. The rate stays between 0.1 and 4 times its starting value.
+This is additive increase and multiplicative decrease, as in TCP congestion
+control and in Breakwater~\cite{cho2020breakwater}, applied to admissions
+rather than requests.
+
+\textbf{Wait estimate.} Each queued response carries the student's position
+and an estimate of the remaining wait: position divided by the current
+admission rate, plus the time to release if the student arrived early. With
+the lottery order the position before release is unknown and no estimate is
+given.

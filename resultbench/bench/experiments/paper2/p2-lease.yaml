@@ -1,0 +1,20 @@
+# Paper 2, RQ1: does a request lease stop admitted students from overloading
+# the backend? In paper-wr-long, token tickets served only 74.5% because
+# admitted students who ran out of patience refreshed straight at A (3.21
+# backend requests per student). A lease of k requests sends them back to the
+# front of the queue after k requests. lease-0 repeats the paper-1 design.
+name: p2-lease
+scenario: bench/scenarios/paper2.yaml
+capacity_from: a
+reps: 3
+runs:
+  - designs: [d-a]
+    multiples: [5]
+    env: {WR_POLICY: fifo}
+    variants:
+      - {label: naive, env: {WR_MODE: naive}}
+      - {label: lease-0, env: {WR_MODE: token, WR_LEASE_REQUESTS: "0"}}
+      - {label: lease-1, env: {WR_MODE: token, WR_LEASE_REQUESTS: "1"}}
+      - {label: lease-2, env: {WR_MODE: token, WR_LEASE_REQUESTS: "2"}}
+      - {label: lease-4, env: {WR_MODE: token, WR_LEASE_REQUESTS: "4"}}
+      - {label: lease-2-back, env: {WR_MODE: token, WR_LEASE_REQUESTS: "2", WR_REENTRY: back}}

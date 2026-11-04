@@ -1,0 +1,32 @@
+# Scenario for the second paper (waiting rooms): the paper-1 scenario with a
+# longer drain (240 s after the surge) so that queues can empty, as in
+# paper-wr-long. Queue patience is unlimited by default, as in paper 1; the
+# p2-eta grid sets it. Bots are off by default.
+name: paper2
+dataset: {seed: 42, n: 200000, roll_base: 2710000000, correction_per_mille: 10, num_schools: 2000}
+surge:
+  shape: surge
+  peak_users_per_s: 100
+  pre_release_s: 20
+  pre_release_start_frac: 0.02
+  pre_release_end_frac: 0.2
+  rise_s: 3
+  decay_tau_s: 30
+  floor_frac: 0.02
+  post_release_s: 90
+  arrivals: poisson
+keys: {dist: uniform, zipf_s: 1.2, typo_rate: 0.01}
+users:
+  patience_s: [5, 20]
+  retry_prob: 0.8
+  impatient_retry_prob: 0.9
+  retry_delay_s: [1, 5]
+  max_attempts: 20
+  prerelease_poll_s: [5, 15]
+  queue_manual_refresh_per_min: 1
+  repeat_view_prob: 0.1
+  repeat_after_s: [5, 20]
+  max_session_s: 600
+corrections: {enabled: false, at_s: 30}
+generator: {max_users: 300000, drain_s: 240}
+deadlines_s: [2, 5, 10]

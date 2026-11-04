@@ -64,3 +64,39 @@ def test_summarize(tmp_path):
     s = pd.read_csv(out / "summary.csv")
     assert s.loc[0, "onset_min"] == 0 and s.loc[0, "minutes_degraded"] == 10
     assert (out / "board.png").exists()
+
+
+def test_infer_hosting():
+    from monitor.census import infer_hosting
+    assert infer_hosting({"cf-ray": "abc", "server": "cloudflare"}, []) == ["cloudflare"]
+    assert infer_hosting({"server": "nginx"}, ["e1234.a.akamaiedge.net"]) == ["akamai"]
+    assert infer_hosting({"server": "Apache"}, ["webhost.nic.in"]) == ["nic"]
+    assert infer_hosting({"server": "Apache"}, []) == []
+
+
+def test_census_against_local_server():
+    from monitor.census import census, table
+
+    class Ok(BaseHTTPRequestHandler):
+        def do_GET(self):
+            self.send_response(200)
+            self.send_header("Server", "test-server")
+            self.send_header("CF-Cache-Status", "MISS")
+            self.end_headers()
+            self.wfile.write(b"<title>Board Results</title>Enter roll number")
+
+        def log_message(self, *a):
+            pass
+
+    srv = HTTPServer(("127.0.0.1", 0), Ok)
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    try:
+        cfg = {"contact": "Tester <t@uni.ac.in>",
+               "targets": [{"id": "local", "group": "test", "url": f"http://127.0.0.1:{srv.server_address[1]}/"}]}
+        recs = census(cfg, timeout_s=5)
+    finally:
+        srv.shutdown()
+    r = recs[0]
+    assert r["http"]["http_code"] == 200 and r["http"]["title"] == "Board Results"
+    assert r["hosting"] == ["cloudflare"]
+    assert "| local | 200 | cloudflare |" in table(recs)

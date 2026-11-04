@@ -19,7 +19,8 @@ PORTAL_COUNTERS = ["db_queries", "pages_built", "cache_hits", "cache_miss_first_
                    "cache_miss_concurrent_duplicate", "coalesced", "xfetch_early_refresh", "redis_errors",
                    "db_errors", "responses_503_queue_full", "dropped_before_start"]
 WR_COUNTERS = ["admitted", "abandoned", "tickets_created", "queued_responses", "proxied", "proxy_errors",
-               "client_canceled", "fast_path_admits"]
+               "client_canceled", "fast_path_admits", "lease_expired", "readmitted", "rate_increases",
+               "rate_decreases"]
 
 
 def _read_json(p: Path) -> dict:
@@ -50,6 +51,18 @@ def load_run(run_dir: Path, details: bool = True) -> dict | None:
     }
     for k, v in s["user_success_within"].items():
         row[f"success_{k}"] = v
+    # Fields added for the second paper (absent in older runs).
+    if s["users"]:
+        row["unfinished_share"] = s["unfinished_users"] / s["users"]
+        row["queue_gave_up_share"] = s.get("queue_gave_up", 0) / s["users"]
+    row["queue_gave_up_wait_p50_ms"] = s.get("queue_gave_up_wait_ms", {}).get("p50", np.nan)
+    for reason, n in s.get("user_gave_up", {}).items():
+        row[f"gave_up_{reason}"] = n / s["users"] if s["users"] else np.nan
+    bots = s.get("bots") or {}
+    row["bot_users"] = bots.get("users", 0)
+    row["bot_requests"] = bots.get("requests", 0)
+    row["bot_backend_requests"] = bots.get("backend_requests", 0)
+    row["bot_fetched_share"] = bots.get("fetched_share", np.nan)
     for k, v in s["requests_by_outcome"].items():
         row[f"req_{k}"] = v
     res = meta.get("resources", {})
@@ -76,6 +89,14 @@ def load_run(run_dir: Path, details: bool = True) -> dict | None:
     wr = _read_json(run_dir / "stats" / "wr.json")
     for k in WR_COUNTERS:
         row[f"wr_{k}"] = wr.get(k, np.nan) if wr else np.nan
+    ratelog = run_dir / "stats" / "wr_ratelog.json"
+    if ratelog.exists():
+        points = json.loads(ratelog.read_text() or "[]") or []
+        rates = [p["rate"] for p in points]
+        if rates:
+            row["wr_rate_mean"] = float(np.mean(rates))
+            row["wr_rate_min"] = float(np.min(rates))
+            row["wr_rate_max"] = float(np.max(rates))
 
     if details:
         ts_file = run_dir / "load" / "timeseries.csv"

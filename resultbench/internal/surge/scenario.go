@@ -40,6 +40,7 @@ type Scenario struct {
 	Generator   GeneratorSpec   `yaml:"generator" json:"generator"`
 	DeadlinesS  []float64       `yaml:"deadlines_s" json:"deadlines_s"`
 	WaitingRoom WaitingRoomSpec `yaml:"waiting_room" json:"waiting_room"`
+	Bots        BotSpec         `yaml:"bots" json:"bots"`
 	// Oracle is "dataset" (check every field against the synthetic ground
 	// truth) or "roll_only" (check only the roll number; for real data).
 	Oracle string `yaml:"oracle" json:"oracle"`
@@ -118,6 +119,37 @@ type UserSpec struct {
 	RepeatViewProb float64 `yaml:"repeat_view_prob" json:"repeat_view_prob"`
 	RepeatAfterS   Range   `yaml:"repeat_after_s" json:"repeat_after_s"`
 	MaxSessionS    float64 `yaml:"max_session_s" json:"max_session_s"`
+	// QueuePatienceS: how long a student stays in a waiting room's queue
+	// (counted from release, or from joining if later) before giving up.
+	// Sampled once per student. [0, 0] means no limit other than
+	// MaxSessionS, as in the first paper.
+	QueuePatienceS Range `yaml:"queue_patience_s" json:"queue_patience_s"`
+	// EtaBalk: if positive and the room shows a wait estimate, a queued
+	// student leaves as soon as time already waited plus the estimate exceeds
+	// EtaBalk times their queue patience. 0 ignores estimates.
+	EtaBalk float64 `yaml:"eta_balk" json:"eta_balk"`
+}
+
+// BotSpec describes automated clients (result scrapers, as run by
+// aggregator sites) that walk through roll numbers and never give up. They
+// are recorded but kept out of every student metric.
+type BotSpec struct {
+	Count int `yaml:"count" json:"count"`
+	// StartS is when the first bot starts, relative to release; bots start
+	// evenly over SpreadS seconds.
+	StartS  float64 `yaml:"start_s" json:"start_s"`
+	SpreadS float64 `yaml:"spread_s" json:"spread_s"`
+	// RollsEach: consecutive roll numbers each bot fetches.
+	RollsEach int `yaml:"rolls_each" json:"rolls_each"`
+	// PollS: pause after a queued, not-released or failed answer (bots
+	// ignore the room's suggested retry time). GapS: pause between rolls.
+	PollS float64 `yaml:"poll_s" json:"poll_s"`
+	GapS  float64 `yaml:"gap_s" json:"gap_s"`
+	// TimeoutS: how long a bot waits for one response.
+	TimeoutS float64 `yaml:"timeout_s" json:"timeout_s"`
+	// KeepCookie: the bot keeps the waiting room's cookie across requests
+	// (one session for all its rolls) instead of starting fresh each time.
+	KeepCookie bool `yaml:"keep_cookie" json:"keep_cookie"`
 }
 
 // CorrectionSpec tells the oracle when corrections are published.
@@ -165,6 +197,7 @@ func Default() Scenario {
 		Generator:   GeneratorSpec{MaxUsers: 200_000, Seed: 1, DrainS: 60, MaxBodyBytes: 64 << 10},
 		DeadlinesS:  []float64{2, 5, 10},
 		WaitingRoom: WaitingRoomSpec{Mode: "token"},
+		Bots:        BotSpec{RollsEach: 1000, PollS: 1, TimeoutS: 10, KeepCookie: true},
 		Oracle:      "dataset",
 	}
 }
@@ -208,6 +241,14 @@ func (s *Scenario) Validate() error {
 		return fmt.Errorf("oracle must be dataset or roll_only")
 	case s.WaitingRoom.Mode != "naive" && s.WaitingRoom.Mode != "token":
 		return fmt.Errorf("waiting_room.mode must be naive or token")
+	case s.Users.QueuePatienceS[0] < 0 || s.Users.QueuePatienceS[1] < s.Users.QueuePatienceS[0]:
+		return fmt.Errorf("users.queue_patience_s must be a range with min <= max")
+	case s.Users.EtaBalk < 0:
+		return fmt.Errorf("users.eta_balk must not be negative")
+	case s.Bots.Count < 0:
+		return fmt.Errorf("bots.count must not be negative")
+	case s.Bots.Count > 0 && (s.Bots.RollsEach <= 0 || s.Bots.PollS <= 0 || s.Bots.TimeoutS <= 0):
+		return fmt.Errorf("bots need rolls_each, poll_s and timeout_s > 0")
 	}
 	return nil
 }

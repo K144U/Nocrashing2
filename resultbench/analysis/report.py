@@ -34,6 +34,16 @@ DEFAULT_METRICS = {
     "correctness": ["wrong", "stale", "missing", "soft_failures", "staleness_window_s", "served_ok"],
     "faults": ["recovery_s", "peak_failure_share", "success_10s", "served_ok"],
 }
+# Second paper: waiting-room mechanisms.
+_P2 = ["served_ok", "success_10s", "unfinished_share", "wait_p50_ms", "wait_p95_ms", "time_to_result_p95_ms",
+       "kendall_tau_prerelease", "backend_amplification", "cpu_s_per_1k_served", "wr_lease_expired", "wr_readmitted"]
+DEFAULT_METRICS.update({
+    "p2-lease": _P2,
+    "p2-adaptive": _P2 + ["wr_rate_mean", "wr_rate_min", "wr_rate_max", "wr_rate_decreases"],
+    "p2-eta": _P2 + ["queue_gave_up_share", "queue_gave_up_wait_p50_ms", "gave_up_queue", "gave_up_queue_eta"],
+    "p2-bots": _P2 + ["bot_requests", "bot_backend_requests", "bot_fetched_share"],
+    "p2-loads": _P2 + ["latency_p99_ms"],
+})
 FALLBACK_METRICS = ["success_5s", "served_ok", "latency_p99_ms", "amplification", "cpu_s_per_1k_served", "wrong", "stale"]
 
 GROUP = ["design", "label", "multiple"]

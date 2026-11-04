@@ -1,0 +1,15 @@
+# Paper 2, summary: the paper-1 waiting room against the improved one across
+# loads, with A alone and C1 as references.
+name: p2-loads
+scenario: bench/scenarios/paper2.yaml
+capacity_from: a
+reps: 3
+runs:
+  - designs: [a, c1]
+    multiples: [2, 5, 10]
+  - designs: [d-a]
+    multiples: [2, 5, 10]
+    env: {WR_POLICY: fifo, WR_MODE: token}
+    variants:
+      - {label: paper1, env: {WR_LEASE_REQUESTS: "0"}}
+      - {label: lease-2-adaptive, env: {WR_LEASE_REQUESTS: "2", WR_ADAPTIVE: "true"}}

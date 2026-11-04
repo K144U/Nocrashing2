@@ -74,7 +74,23 @@ type Summary struct {
 	LatencyCorrectMs  Percentiles        `json:"latency_correct_ms"`
 	TimeToResultMs    Percentiles        `json:"time_to_result_ms"`
 	AdmissionWaitMs   Percentiles        `json:"admission_wait_ms"`
-	Generator         GeneratorStats     `json:"generator"`
+	// Students who gave up in a waiting room's queue, and how long they had
+	// waited there (time wasted without a result).
+	QueueGaveUp       int            `json:"queue_gave_up"`
+	QueueGaveUpWaitMs Percentiles    `json:"queue_gave_up_wait_ms"`
+	Bots              BotStats       `json:"bots"`
+	Generator         GeneratorStats `json:"generator"`
+}
+
+// BotStats summarises automated clients. Requests, BackendRequests and
+// RequestsByOutcome in Summary include them; every per-student metric does not.
+type BotStats struct {
+	Users           int     `json:"users"`
+	Requests        int64   `json:"requests"`
+	BackendRequests int64   `json:"backend_requests"`
+	RollsWanted     int     `json:"rolls_wanted"`
+	RollsFetched    int     `json:"rolls_fetched"`
+	FetchedShare    float64 `json:"fetched_share"`
 }
 
 // Percentiles of a distribution.
@@ -144,6 +160,7 @@ func (g *Generator) Run(ctx context.Context) (Summary, error) {
 	userCtx, cancelUsers := context.WithCancel(ctx)
 	defer cancelUsers()
 	var wg sync.WaitGroup
+	g.spawnBots(userCtx, &wg)
 	g.spawn(ctx, userCtx, &wg)
 
 	// Let students who are still trying finish, up to the drain limit.
@@ -282,8 +299,13 @@ func (g *Generator) user(ctx context.Context, id, roll int64, arrival time.Time)
 	}
 	_, valid := g.or.Cfg.Valid(roll)
 	patience := seconds(uniform(rng, us.PatienceS))
+	var queuePatience time.Duration
+	if us.QueuePatienceS[1] > 0 {
+		queuePatience = seconds(uniform(rng, us.QueuePatienceS))
+	}
+	var queueStart time.Time // when the student's time in the queue started counting
 	u := userRec{id: id, roll: roll, valid: valid, arrivalMs: g.relMs(arrival), admittedMs: -1, finalMs: -1, firstTryMs: -1,
-		patienceMs: patience.Milliseconds()}
+		patienceMs: patience.Milliseconds(), queuePatienceMs: queuePatience.Milliseconds()}
 	defer func() { g.rec.usrCh <- u }()
 
 	target := rng.IntN(len(sc.Targets))
@@ -327,11 +349,41 @@ func (g *Generator) user(ctx context.Context, id, roll int64, arrival time.Time)
 			if st != nil && st.Ticket != "" {
 				ticket = st.Ticket
 			}
+			now := time.Now()
+			if queueStart.IsZero() {
+				queueStart = now
+				if now.Before(g.release) {
+					queueStart = g.release
+				}
+			}
+			waited := max(0, now.Sub(queueStart))
+			if queuePatience > 0 {
+				if waited >= queuePatience {
+					u.gaveUp, u.queueWaitMs = "queue", waited.Milliseconds()
+					return
+				}
+				if us.EtaBalk > 0 && st != nil && st.EtaMs != nil && *st.EtaMs >= 0 {
+					eta := time.Duration(*st.EtaMs) * time.Millisecond
+					if waited+eta > time.Duration(us.EtaBalk*float64(queuePatience)) {
+						u.gaveUp, u.queueWaitMs = "queue_eta", waited.Milliseconds()
+						return
+					}
+				}
+			}
 			wait := 5 * time.Second
 			if st != nil && st.RetryAfterMs > 0 {
 				wait = time.Duration(st.RetryAfterMs) * time.Millisecond
 			}
 			wait = min(max(wait, 200*time.Millisecond), 60*time.Second)
+			if queuePatience > 0 && now.Add(wait).After(queueStart.Add(queuePatience)) {
+				// Patience runs out before the next poll: wait until then and leave.
+				if !sleepCtx(ctx, queueStart.Add(queuePatience).Sub(now)) {
+					u.gaveUp = "shutdown"
+					return
+				}
+				u.gaveUp, u.queueWaitMs = "queue", queuePatience.Milliseconds()
+				return
+			}
 			// Manual refresh during the wait (a Poisson event).
 			pRefresh := 1 - math.Exp(-us.QueueManualRefreshPerMin*wait.Minutes())
 			if rng.Float64() < pRefresh {
@@ -371,6 +423,78 @@ func (g *Generator) user(ctx context.Context, id, roll int64, arrival time.Time)
 				u.gaveUp = "shutdown"
 				return
 			}
+		}
+	}
+}
+
+// spawnBots starts the automated clients described in Scenario.Bots.
+func (g *Generator) spawnBots(ctx context.Context, wg *sync.WaitGroup) {
+	bs := g.sc.Bots
+	if bs.Count == 0 {
+		return
+	}
+	n := int64(g.sc.Dataset.N)
+	rng := rand.New(rand.NewPCG(g.sc.Generator.Seed, 0xB07))
+	for i := 0; i < bs.Count; i++ {
+		start := g.release.Add(seconds(bs.StartS + bs.SpreadS*float64(i)/float64(bs.Count)))
+		first := g.sc.Dataset.RollBase + rng.Int64N(n)
+		id := g.nextID.Add(1)
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			g.bot(ctx, id, first, start)
+		}()
+	}
+}
+
+// bot fetches bs.RollsEach consecutive roll numbers, polling and retrying
+// at a fixed pace, and never gives up before the run ends.
+func (g *Generator) bot(ctx context.Context, id, first int64, start time.Time) {
+	bs := g.sc.Bots
+	if !sleepCtx(ctx, time.Until(start)) {
+		return
+	}
+	u := userRec{id: id, roll: first, bot: true, arrivalMs: g.relMs(start), admittedMs: -1, finalMs: -1, firstTryMs: -1,
+		patienceMs: int64(bs.TimeoutS * 1000)}
+	defer func() { g.rec.usrCh <- u }()
+	n := int64(g.sc.Dataset.N)
+	base := g.sc.Dataset.RollBase
+	timeout := seconds(bs.TimeoutS)
+	var cookie, ticket string
+	for i := 0; i < bs.RollsEach; {
+		if ctx.Err() != nil {
+			u.gaveUp = "shutdown"
+			return
+		}
+		roll := base + (first-base+int64(i))%n
+		c := cookie
+		if !bs.KeepCookie {
+			c = ""
+		}
+		out, st, newCookie := g.request(ctx, &u, KindBot, 0, roll, c, ticket, timeout)
+		if newCookie != "" {
+			cookie = newCookie
+		}
+		pause := seconds(bs.PollS)
+		switch {
+		case out == oracle.Queued:
+			if st != nil && st.Ticket != "" {
+				ticket = st.Ticket
+			}
+		case out.Final():
+			if u.admittedMs < 0 {
+				u.admittedMs = g.relMs(time.Now())
+			}
+			u.rollsFetched++
+			u.finalMs = g.relMs(time.Now())
+			i++
+			pause = seconds(bs.GapS)
+		case out != oracle.NotReleased:
+			u.failures++
+		}
+		if !sleepCtx(ctx, pause) {
+			u.gaveUp = "shutdown"
+			return
 		}
 	}
 }
@@ -526,14 +650,29 @@ func (g *Generator) summarize(started time.Time, gen GeneratorStats) Summary {
 		}
 	}
 	s.BackendRequests = a.Requests - a.ByOutcome[oracle.Queued] - a.ByOutcome[oracle.NotReleased]
-	if len(a.Users) > 0 {
-		s.Amplification = float64(a.Requests) / float64(len(a.Users))
-		s.BackendAmplif = float64(s.BackendRequests) / float64(len(a.Users))
+	students := make([]userRec, 0, len(a.Users))
+	for _, u := range a.Users {
+		if u.bot {
+			s.Bots.Users++
+			s.Bots.RollsFetched += u.rollsFetched
+			continue
+		}
+		students = append(students, u)
 	}
-	var ttr, wait []float32
+	s.Users = len(students)
+	s.Bots.Requests, s.Bots.BackendRequests = a.BotRequests, a.BotBackend
+	s.Bots.RollsWanted = s.Bots.Users * sc.Bots.RollsEach
+	if s.Bots.RollsWanted > 0 {
+		s.Bots.FetchedShare = float64(s.Bots.RollsFetched) / float64(s.Bots.RollsWanted)
+	}
+	if len(students) > 0 {
+		s.Amplification = float64(a.Requests-a.BotRequests) / float64(len(students))
+		s.BackendAmplif = float64(s.BackendRequests-a.BotBackend) / float64(len(students))
+	}
+	var ttr, wait, qwait []float32
 	within := make([]int, len(sc.DeadlinesS))
 	ok := 0
-	for _, u := range a.Users {
+	for _, u := range students {
 		final := u.final
 		if final == "" {
 			final = "none"
@@ -555,6 +694,10 @@ func (g *Generator) summarize(started time.Time, gen GeneratorStats) Summary {
 		if u.admittedMs >= 0 {
 			wait = append(wait, float32(u.admittedMs-startMs))
 		}
+		if u.gaveUp == "queue" || u.gaveUp == "queue_eta" {
+			s.QueueGaveUp++
+			qwait = append(qwait, float32(u.queueWaitMs))
+		}
 		if final == oracle.Correct.String() || final == oracle.CorrectNotFound.String() {
 			ok++
 			d := float64(u.finalMs - startMs)
@@ -566,14 +709,15 @@ func (g *Generator) summarize(started time.Time, gen GeneratorStats) Summary {
 			}
 		}
 	}
-	if len(a.Users) > 0 {
-		s.UserServedOK = float64(ok) / float64(len(a.Users))
+	if len(students) > 0 {
+		s.UserServedOK = float64(ok) / float64(len(students))
 		for k, dl := range sc.DeadlinesS {
-			s.UserSuccessWithin[strconv.FormatFloat(dl, 'f', -1, 64)+"s"] = float64(within[k]) / float64(len(a.Users))
+			s.UserSuccessWithin[strconv.FormatFloat(dl, 'f', -1, 64)+"s"] = float64(within[k]) / float64(len(students))
 		}
 	}
 	s.TimeToResultMs = percentiles(ttr)
 	s.AdmissionWaitMs = percentiles(wait)
+	s.QueueGaveUpWaitMs = percentiles(qwait)
 	return s
 }
 

@@ -1,0 +1,23 @@
+# Paper 2, RQ4: scrapers. Aggregator sites fetch results for many roll
+# numbers as soon as they are out. 20 bots each walk 1000 consecutive roll
+# numbers, polling every 0.5 s and never giving up. Student metrics exclude
+# bots. Does the waiting room protect students, and does a lease limit a bot
+# that keeps one session for all its requests?
+name: p2-bots
+scenario: bench/scenarios/paper2.yaml
+capacity_from: a
+reps: 3
+set: {bots.count: 20, bots.rolls_each: 1000, bots.poll_s: 0.5, bots.start_s: 0, bots.spread_s: 5}
+runs:
+  - designs: [a]
+    multiples: [2]
+    variants:
+      - {label: bots}
+      - {label: no-bots, set: {bots.count: 0}}
+  - designs: [d-a]
+    multiples: [2]
+    env: {WR_POLICY: fifo, WR_MODE: token}
+    variants:
+      - {label: lease-0, env: {WR_LEASE_REQUESTS: "0"}}
+      - {label: lease-2, env: {WR_LEASE_REQUESTS: "2"}}
+      - {label: lease-2-fresh-sessions, env: {WR_LEASE_REQUESTS: "2"}, set: {bots.keep_cookie: false}}

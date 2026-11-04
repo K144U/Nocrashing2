@@ -1,0 +1,51 @@
+\section{Introduction}
+
+When an examination board publishes results at an announced time, lakhs of
+students open its website within minutes, and these websites keep
+failing~\cite{ht2021ssc,pagalguy2016jee,knec2025x}. In earlier
+work~\cite{pathak2026surviving} we compared eleven designs of a result portal
+under the same resources and found that pre-computing results removes the
+problem for the lookup itself. Not every path can be pre-computed, however:
+logins, re-evaluation requests, counselling choices and payments must reach
+a live backend, and in 2026 such paths failed in practice.
+\todo{Cite CBSE re-evaluation portal (June 2026) and Quebec (July 2026) once
+press sources are archived; see reports/next-paper-gap-analysis.md.}
+For such paths the remaining tool is admission control in front of the
+backend, which commercial products offer as a ``virtual waiting
+room''~\cite{cloudflare2026wr,aws2022vwr}.
+
+Our earlier measurements showed why a waiting room is not a drop-in fix. At
+five times the portal's capacity, a first-come-first-served room served
+98.3\% of students against 43.3\% without it, but only after a median wait of
+two minutes. With tickets kept in the page, students who pressed refresh while
+queued lost their place (about \num{15700} lost tickets per run). With
+tickets kept in a signed cookie,
+students kept their place, but once admitted those who ran out of patience
+refreshed straight at the portal, which received 3.21 requests per student
+instead of 1.07, and only 74.5\% were served~\cite{pathak2026surviving}.
+
+This paper asks:
+\begin{itemize}
+\item \textbf{RQ1 (leases):} Does limiting the requests one admission may
+send keep the portal within capacity, and what does it cost in waiting and in
+arrival order?
+\item \textbf{RQ2 (closed-loop admission):} Can the room find a safe
+admission rate without knowing the portal's capacity, including when the
+portal is slower on the day than when it was sized?
+\item \textbf{RQ3 (wait estimates):} When students have limited patience,
+do wait estimates reduce the time lost by students who will not be served?
+\item \textbf{RQ4 (bots):} Do scrapers that never give up crowd out students,
+and does a lease limit them?
+\end{itemize}
+
+Because every answer depends on how students behave, we also measure that
+behaviour: \todo{N} students used a mock result page that delayed their result
+and showed them a hanging page, an error page, or a queue with or without a
+wait estimate (Section~\ref{sec:behaviour}).
+
+Our contributions are \todo{finalise after results}: (1) three waiting-room
+mechanisms, implemented in the open-source ResultBench testbed; (2) their
+evaluation under an announced surge of students who refresh, including
+fairness and the time students lose; (3) the first measurements of how
+students act on a slow result page, turned into parameters for load models;
+and (4) an evaluation of scraper traffic behind a waiting room.

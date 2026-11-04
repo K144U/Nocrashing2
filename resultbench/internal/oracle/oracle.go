@@ -82,6 +82,9 @@ type Status struct {
 	Ticket       string `json:"ticket,omitempty"`
 	Position     int64  `json:"position"`
 	RetryAfterMs int64  `json:"retry_after_ms,omitempty"`
+	// EtaMs is the waiting room's estimate of the remaining wait; nil if
+	// the room gives none, negative if it cannot estimate.
+	EtaMs *int64 `json:"eta_ms,omitempty"`
 }
 
 // Oracle holds the dataset configuration.

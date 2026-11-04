@@ -20,6 +20,7 @@ const (
 	KindRefresh = "refresh" // manual refresh while waiting in the queue
 	KindRetry   = "retry"   // reload after an error or timeout
 	KindRepeat  = "repeat"  // looking again after already seeing the result
+	KindBot     = "bot"     // any request from an automated client
 )
 
 type requestRec struct {
@@ -47,8 +48,12 @@ type userRec struct {
 	polls           int
 	manualRefreshes int
 	ticketsLost     int
-	gaveUp          string // "", "attempts", "no_retry", "session", "shutdown"
+	gaveUp          string // "", "attempts", "no_retry", "session", "shutdown", "queue", "queue_eta"
 	patienceMs      int64
+	queuePatienceMs int64 // 0: no limit
+	queueWaitMs     int64 // time spent in the queue by a student who gave up there
+	bot             bool
+	rollsFetched    int // bots: rolls answered with a final result
 }
 
 type recorder struct {
@@ -75,6 +80,9 @@ type aggregate struct {
 	LatCorrect []float32
 	LatAll     []float32
 	Users      []userRec
+	// Bot traffic, also included in the totals above.
+	BotRequests int64
+	BotBackend  int64
 }
 
 type secondStats struct {
@@ -100,7 +108,8 @@ func newRecorder(dir string, deadlines []float64) (*recorder, error) {
 	}
 	if r.usrF, r.usrGz, r.usrCSV, err = openCSV(filepath.Join(dir, "users.csv.gz"),
 		[]string{"user", "roll", "valid", "arrival_ms", "admitted_ms", "final_ms", "final", "requests", "failures",
-			"polls", "manual_refreshes", "tickets_lost", "gave_up", "patience_ms", "first_try_ms"}); err != nil {
+			"polls", "manual_refreshes", "tickets_lost", "gave_up", "patience_ms", "first_try_ms",
+			"queue_patience_ms", "queue_wait_ms", "bot", "rolls_fetched"}); err != nil {
 		return nil, err
 	}
 	go r.loop()
@@ -149,8 +158,15 @@ func (r *recorder) loop() {
 			r.agg.Requests++
 			r.agg.ByOutcome[q.outcome]++
 			r.agg.ByKind[q.kind]++
-			r.agg.LatAll = append(r.agg.LatAll, float32(q.latencyMs))
-			if q.outcome == oracle.Correct {
+			if q.kind == KindBot {
+				r.agg.BotRequests++
+				if q.outcome != oracle.Queued && q.outcome != oracle.NotReleased {
+					r.agg.BotBackend++
+				}
+			} else {
+				r.agg.LatAll = append(r.agg.LatAll, float32(q.latencyMs))
+			}
+			if q.outcome == oracle.Correct && q.kind != KindBot {
 				r.agg.LatCorrect = append(r.agg.LatCorrect, float32(q.latencyMs))
 			}
 			st := r.sec(q.tMs)
@@ -171,10 +187,13 @@ func (r *recorder) loop() {
 				strconv.FormatInt(u.arrivalMs, 10), strconv.FormatInt(u.admittedMs, 10), strconv.FormatInt(u.finalMs, 10),
 				u.final, strconv.Itoa(u.requests), strconv.Itoa(u.failures), strconv.Itoa(u.polls),
 				strconv.Itoa(u.manualRefreshes), strconv.Itoa(u.ticketsLost), u.gaveUp, strconv.FormatInt(u.patienceMs, 10),
-				strconv.FormatInt(u.firstTryMs, 10),
+				strconv.FormatInt(u.firstTryMs, 10), strconv.FormatInt(u.queuePatienceMs, 10), strconv.FormatInt(u.queueWaitMs, 10),
+				strconv.FormatBool(u.bot), strconv.Itoa(u.rollsFetched),
 			})
 			r.agg.Users = append(r.agg.Users, u)
-			r.sec(u.arrivalMs).arrivals++
+			if !u.bot {
+				r.sec(u.arrivalMs).arrivals++
+			}
 		}
 	}
 }

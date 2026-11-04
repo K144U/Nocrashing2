@@ -1,0 +1,55 @@
+\section{Methodology}
+\label{sec:method}
+
+\textbf{Testbed.} We use ResultBench~\cite{pathak2026surviving} unchanged
+except for the mechanisms above: the database-backed portal A behind the
+waiting room, the same two-CPU budget, the same synthetic dataset of
+\num{200000} students and the same correctness oracle. The scenario is the
+first paper's compressed surge (20\,s before release, a peak at release that
+decays over 30\,s, arrivals for 90\,s) with 240\,s more for queues to empty.
+Load is a multiple of A's calibrated capacity. Each configuration is run
+three times; we report medians with 95\% bootstrap intervals.
+
+\textbf{Students.} The load generator is open loop. Each student waits for a
+response up to a patience drawn from 5--20\,s, retries after a failure with
+probability 0.8 (0.9 after running out of patience), presses refresh while
+queued about once a minute and, new in this paper, gives up after a
+\emph{queue patience}. With a wait estimate, a student whose time already
+waited plus the estimate exceeds their queue patience leaves at once
+(\texttt{users.eta\_balk}). \todo{Replace or bracket these values with the
+behaviour-study measurements.}
+
+\textbf{Bots.} Scrapers start at release and walk through \num{1000}
+consecutive roll numbers each, polling every 0.5\,s and never giving up; they
+keep one session or start a new one for every request. Bot requests count in
+the portal's load but in no student metric.
+
+\textbf{Experiments.} Table~\ref{tab:grids} lists the grids
+(\texttt{bench/experiments/paper2}).
+
+\begin{table}[t]
+\caption{Experiment grids (3 repetitions each)}
+\label{tab:grids}
+\centering
+\footnotesize
+\begin{tabular}{@{}llp{4.2cm}@{}}
+\toprule
+Grid & RQ & Varies \\
+\midrule
+p2-lease & 1 & naive; token with $k \in \{\infty, 1, 2, 4\}$; front or back re-entry \\
+p2-adaptive & 2 & fixed rate at 0.5/0.8/1.2$\times$ capacity vs.\ closed loop from the same start; slower portal \\
+p2-eta & 3 & queue patience 30--300\,s; estimates off/on \\
+p2-bots & 4 & 20 bots; A alone; room with and without lease \\
+p2-loads & all & 2, 5, 10$\times$; paper-1 room vs.\ lease and closed loop \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Behaviour study}
+\label{sec:behaviour}
+
+\todo{Describe after the sessions: participants, consent, the four conditions
+(hanging page, error page, queue, queue with estimate), the 4-minute release,
+and the measures (time to first reload, retries after an error, reloads per
+minute in the queue, time to giving up with Kaplan--Meier censoring at
+release). Protocol: behaviour-study/README.md.}

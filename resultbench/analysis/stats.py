@@ -34,6 +34,8 @@ def fairness(users: pd.DataFrame) -> dict:
     and near 0 for random order. Also reports how much longer students who
     pressed refresh waited than those who did not.
     """
+    if "bot" in users:
+        users = users[~users["bot"].astype(bool)]
     u = users[(users["admitted_ms"] >= 0)].copy()
     out = {"fair_n": len(u), "kendall_tau": np.nan, "kendall_tau_prerelease": np.nan,
            "refresh_penalty_ms": np.nan, "wait_p50_ms": np.nan, "wait_p95_ms": np.nan}

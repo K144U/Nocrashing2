@@ -1,0 +1,34 @@
+\section{Background and Related Work}
+\label{sec:background}
+
+\textbf{Admission control.} Servers protect themselves by queueing or
+shedding work: SEDA~\cite{welsh2001seda}, front-end admission control for
+e-commerce sites~\cite{elnikety2004gatekeeper}, flash-crowd
+detection~\cite{chen2005news}, and controllers that adjust admission from
+measured delay, such as DAGOR~\cite{zhou2018dagor} and
+Breakwater~\cite{cho2020breakwater}. These act on requests. A waiting room
+acts on people: it admits a student, who then sends several requests, and the
+student can refresh, give up or come back.
+
+\textbf{Waiting rooms.} WebQ~\cite{doshi2015webq} held users of an overloaded
+server in a virtual queue, told them how long to wait and shaped load to the
+server's capacity. Commercial rooms offer first-come-first-served and lottery
+orders and session lifetimes~\cite{cloudflare2026wr,aws2022vwr}. We are not
+aware of a peer-reviewed evaluation of how these settings interact with
+students who refresh. \todo{Re-run the venue search in the gap analysis,
+section 7, before claiming this.}
+
+\textbf{Retries and metastability.} Retries can keep a system overloaded after
+the trigger has gone~\cite{bronson2021metastable,huang2022metastable}; recent
+work models how retry policies and capacity loss feed each
+other~\cite{metastable2026characterizing,mehan2026retry}. These studies model
+automated clients; students are slower, less regular and give up.
+
+\textbf{Wait information.} In a randomised field experiment on a ride-sharing
+platform, longer initial wait estimates increased abandonment of a virtual
+queue~\cite{yu2023delayinfo}. We test the opposite use of the same effect:
+letting students who will not be served in time leave early.
+
+\textbf{Our earlier results.} The first paper~\cite{pathak2026surviving}
+introduced ResultBench and the naive and token waiting rooms that serve as
+baselines here.

@@ -1,0 +1,10 @@
+*.aux
+*.log
+*.bbl
+*.blg
+*.fls
+*.fdb_latexmk
+*.out
+*.synctex.gz
+main.pdf
+figures/replay.gif

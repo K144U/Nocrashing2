@@ -61,7 +61,7 @@ path ([`bench/designs.yaml`](bench/designs.yaml)).
 | B3 | + pre-warm | Cache filled before release |
 | C1 | Pre-computed KV | All results in Redis before release; no database on the read path |
 | C2 | Pre-computed static | One JSON file per roll number served by Nginx |
-| D-A, D-C1, D-C2 | Waiting room | Admission layer in front of A, C1 or C2; FIFO or random policy; naive or token tickets |
+| D-A, D-C1, D-C2 | Waiting room | Admission layer in front of A, C1 or C2; FIFO or random policy; naive or token tickets; optional request lease, closed-loop admission rate and wait estimates ([paper 2](docs/paper2.md)) |
 
 ## What a run records
 
@@ -114,3 +114,4 @@ enable it.
 - [Experiments](docs/experiments.md): which grid answers which research question
 - [Field study](docs/field-study.md) and [RTI template](docs/rti-template.md)
 - [Reproducing the results](docs/reproduce.md)
+- [Second paper: waiting-room mechanisms](docs/paper2.md)

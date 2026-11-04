@@ -36,6 +36,7 @@ jobs:
           python-version: "3.12"
       - run: pip install -r requirements.txt
       - run: python -m pytest -q tests
+      - run: python -m pytest -q ../behaviour-study
 
   # Brings up the static design and runs a short surge, end to end.
   e2e:

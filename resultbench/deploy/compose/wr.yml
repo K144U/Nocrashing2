@@ -15,6 +15,12 @@ services:
       RB_POLL: ${WR_POLL:-5s}
       RB_SECRET: ${WR_SECRET:-resultbench}
       RB_RELEASE_AT: ${RELEASE_AT_MS:-}
+      RB_LEASE_REQUESTS: ${WR_LEASE_REQUESTS:-0}
+      RB_REENTRY: ${WR_REENTRY:-front}
+      RB_ADAPTIVE: ${WR_ADAPTIVE:-false}
+      RB_TARGET_LATENCY: ${WR_TARGET_LATENCY:-500ms}
+      RB_SLOW_SHARE: ${WR_SLOW_SHARE:-0.1}
+      RB_DECREASE_FACTOR: ${WR_DECREASE_FACTOR:-0.8}
     cpus: ${WR_CPUS:-0.25}
     mem_limit: ${WR_MEM:-512m}
     cpuset: "${SUT_CPUSET:-0,1}"

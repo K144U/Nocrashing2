@@ -1,0 +1,18 @@
+# Paper 2, RQ3: do wait estimates help students who will not be served in
+# time? Queued students here give up after 30 s to 5 min (an assumption the
+# behaviour study is meant to replace). With eta_balk 1 a student leaves as
+# soon as the room's estimate says they will not make it, instead of waiting
+# out their patience.
+name: p2-eta
+scenario: bench/scenarios/paper2.yaml
+capacity_from: a
+reps: 3
+env: {WR_POLICY: fifo, WR_MODE: token, WR_LEASE_REQUESTS: "2"}
+set: {users.queue_patience_s: [30, 300]}
+runs:
+  - designs: [d-a]
+    multiples: [5]
+    variants:
+      - {label: no-estimate, set: {users.eta_balk: 0}}
+      - {label: estimate, set: {users.eta_balk: 1}}
+      - {label: estimate-adaptive, set: {users.eta_balk: 1}, env: {WR_ADAPTIVE: "true"}}

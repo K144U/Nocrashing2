@@ -441,6 +441,12 @@ def collect_stats(compose: Compose, design: dict, run_dir: Path) -> None:
             text = r.stdout.strip().splitlines()
             body = next((l for l in reversed(text) if l.startswith("{")), "{}")
             (stats_dir / f"{svc}.json").write_text(body + "\n")
+        if svc == "wr":
+            r = compose.run("--profile", "tools", "run", "--rm", "tools", "fetch", "http://wr:8080/ratelog",
+                            capture=True, check=False)
+            text = r.stdout.strip().splitlines()
+            body = next((l for l in reversed(text) if l.startswith("[") or l == "null"), "[]")
+            (stats_dir / "wr_ratelog.json").write_text(body + "\n")
         if svc == "static":
             r = compose.run("--profile", "tools", "run", "--rm", "tools", "fetch", "http://static:8080/nginx_status",
                             capture=True, check=False)
@@ -461,7 +467,10 @@ def run_one(design_name: str, sc: dict, run_dir: Path, opts: dict) -> dict:
             if cap is None:
                 raise SystemExit(f"design {design_name} needs the calibrated capacity of {wr['admit_from']}; "
                                  f"run: python bench/rb.py calibrate --design {wr['admit_from']}")
-            env["WR_ADMIT_RATE"] = f"{wr['admit_fraction'] * cap:.1f}"
+            # WR_ADMIT_FRACTION (a grid variant) overrides the design's fraction,
+            # e.g. to start an adaptive room from a wrong capacity estimate.
+            frac = float(env.pop("WR_ADMIT_FRACTION", wr["admit_fraction"]))
+            env["WR_ADMIT_RATE"] = f"{frac * cap:.1f}"
         sc.setdefault("waiting_room", {})["mode"] = env.get("WR_MODE", "token")
 
     if cpuset(env["SUT_CPUSET"]) & cpuset(defaults["loadgen_cpuset"]):

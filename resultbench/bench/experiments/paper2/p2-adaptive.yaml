@@ -1,0 +1,23 @@
+# Paper 2, RQ2: can the room find a safe admission rate by itself? A board
+# does not know its portal's capacity in advance. A fixed rate set too high
+# overloads the backend; set too low it wastes capacity. Compare fixed rates
+# at 0.5x, 0.8x and 1.2x of A's calibrated capacity with a closed-loop room
+# started from the same guesses, and a backend that is slower on the day
+# than when it was calibrated (page cost 8 ms instead of 5 ms).
+name: p2-adaptive
+scenario: bench/scenarios/paper2.yaml
+capacity_from: a
+reps: 3
+env: {WR_POLICY: fifo, WR_MODE: token, WR_LEASE_REQUESTS: "2"}
+runs:
+  - designs: [d-a]
+    multiples: [5]
+    variants:
+      - {label: fixed-0.5, env: {WR_ADMIT_FRACTION: "0.5"}}
+      - {label: fixed-0.8, env: {WR_ADMIT_FRACTION: "0.8"}}
+      - {label: fixed-1.2, env: {WR_ADMIT_FRACTION: "1.2"}}
+      - {label: adaptive-0.5, env: {WR_ADMIT_FRACTION: "0.5", WR_ADAPTIVE: "true"}}
+      - {label: adaptive-0.8, env: {WR_ADMIT_FRACTION: "0.8", WR_ADAPTIVE: "true"}}
+      - {label: adaptive-1.2, env: {WR_ADMIT_FRACTION: "1.2", WR_ADAPTIVE: "true"}}
+      - {label: slow-fixed-0.8, env: {WR_ADMIT_FRACTION: "0.8", PAGE_COST: 8ms}}
+      - {label: slow-adaptive-0.8, env: {WR_ADMIT_FRACTION: "0.8", WR_ADAPTIVE: "true", PAGE_COST: 8ms}}

@@ -118,8 +118,21 @@ func runWaitingRoom(args []string) error {
 	secret := fs.String("secret", "", "HMAC secret for token mode (required)")
 	seed := fs.Uint64("seed", 1, "seed for the random policy")
 	gate := fs.String("gate-path", "/result", "only requests under this path go through admission (empty: all)")
+	lease := fs.Int("lease-requests", 0, "most backend requests per admission; then the user rejoins the queue (0: no limit)")
+	reentry := fs.String("reentry", wroom.ReentryFront, "where a user whose lease is used up rejoins: front | back")
+	adaptive := fs.Bool("adaptive", false, "adjust the admission rate from backend response times")
+	target := fs.Duration("target-latency", 500*time.Millisecond, "adaptive: backend response time to stay under")
+	slowShare := fs.Float64("slow-share", 0.1, "adaptive: share of slow responses that triggers a decrease")
+	ctlInterval := fs.Duration("control-interval", time.Second, "adaptive: how often the rate is adjusted")
+	incStep := fs.Float64("increase-step", 0, "adaptive: rate increase per interval (default 5% of admit-rate)")
+	decFactor := fs.Float64("decrease-factor", 0.8, "adaptive: rate multiplier on a decrease")
+	minRate := fs.Float64("min-rate", 0, "adaptive: lowest rate (default 10% of admit-rate)")
+	maxRate := fs.Float64("max-rate", 0, "adaptive: highest rate (default 4x admit-rate)")
 	if err := parse(fs, args); err != nil {
 		return err
+	}
+	if *reentry != wroom.ReentryFront && *reentry != wroom.ReentryBack {
+		return fmt.Errorf("-reentry must be front or back")
 	}
 	if *mode == wroom.ModeToken && len(*secret) < 8 {
 		return fmt.Errorf("token mode needs -secret (RB_SECRET) of at least 8 characters")
@@ -133,6 +146,8 @@ func runWaitingRoom(args []string) error {
 	room := wroom.New(wroom.Config{
 		Policy: *policy, Mode: *mode, ReleaseAt: releaseAt, AdmitRate: *rate, Burst: *burst, MaxActive: *maxActive,
 		SessionTTL: *session, AbandonAfter: *abandon, PollInterval: *poll, Secret: []byte(*secret), Seed: *seed, GatePath: *gate,
+		LeaseRequests: *lease, Reentry: *reentry, Adaptive: *adaptive, TargetLatency: *target, SlowShare: *slowShare,
+		ControlInterval: *ctlInterval, IncreaseStep: *incStep, DecreaseFactor: *decFactor, MinRate: *minRate, MaxRate: *maxRate,
 	})
 	h, err := wroom.NewHandler(room, *backend)
 	if err != nil {
@@ -141,6 +156,7 @@ func runWaitingRoom(args []string) error {
 	stopTick := make(chan struct{})
 	defer close(stopTick)
 	go room.Run(5*time.Millisecond, stopTick)
-	log.Printf("waiting room policy=%s mode=%s admit_rate=%.1f/s backend=%s", *policy, *mode, *rate, *backend)
+	log.Printf("waiting room policy=%s mode=%s admit_rate=%.1f/s lease=%d reentry=%s adaptive=%v target=%s backend=%s",
+		*policy, *mode, *rate, *lease, *reentry, *adaptive, *target, *backend)
 	return serve(ctx, newHTTPServer(*listen, h.Routes()))
 }
